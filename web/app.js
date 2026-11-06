@@ -915,6 +915,59 @@ function closePreview() {
   els.layout.classList.remove('with-preview')
 }
 
+// ---- preview width (drag the divider between chat and preview) ----
+
+const PREVIEW_WIDTH_KEY = 'wikichat.previewWidth'
+const SIDEBAR_PX = 280
+const MIN_PREVIEW_PX = 320
+const MIN_CHAT_PX = 320
+
+function clampPreviewWidth(px) {
+  const max = Math.max(MIN_PREVIEW_PX, els.layout.clientWidth - SIDEBAR_PX - MIN_CHAT_PX)
+  return Math.round(Math.min(Math.max(px, MIN_PREVIEW_PX), max))
+}
+
+function applyPreviewWidth(px) {
+  if (px == null) els.layout.style.removeProperty('--preview-width')
+  else els.layout.style.setProperty('--preview-width', `${clampPreviewWidth(px)}px`)
+}
+
+function setupPreviewResizer() {
+  const handle = $('preview-resizer')
+  let stored = null
+  try { stored = Number(localStorage.getItem(PREVIEW_WIDTH_KEY)) || null } catch {}
+  applyPreviewWidth(stored)
+
+  handle.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    handle.setPointerCapture(event.pointerId)
+    els.layout.classList.add('resizing')
+    const right = els.layout.getBoundingClientRect().right
+    const onMove = e => applyPreviewWidth(right - e.clientX)
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove)
+      handle.removeEventListener('pointerup', onUp)
+      handle.removeEventListener('pointercancel', onUp)
+      els.layout.classList.remove('resizing')
+      const width = parseInt(els.layout.style.getPropertyValue('--preview-width'), 10)
+      try { if (width) localStorage.setItem(PREVIEW_WIDTH_KEY, String(width)) } catch {}
+    }
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', onUp)
+    handle.addEventListener('pointercancel', onUp)
+  })
+  handle.addEventListener('dblclick', () => {
+    applyPreviewWidth(null)
+    try { localStorage.removeItem(PREVIEW_WIDTH_KEY) } catch {}
+  })
+  // Keep a stored width valid when the window shrinks.
+  window.addEventListener('resize', () => {
+    const width = parseInt(els.layout.style.getPropertyValue('--preview-width'), 10)
+    if (width) applyPreviewWidth(width)
+  })
+}
+
 async function openWithDefaultApp(path) {
   try {
     await apiJson('/wiki/open', { method: 'POST', body: { conversationId: state.current?.id, path } })
@@ -969,6 +1022,7 @@ els.composer.addEventListener('submit', send)
 els.stop.addEventListener('click', () => void stop())
 els.previewClose.addEventListener('click', closePreview)
 els.previewBack.addEventListener('click', previewBack)
+setupPreviewResizer()
 els.question.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
     event.preventDefault()
