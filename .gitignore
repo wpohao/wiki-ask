@@ -1,0 +1,5 @@
+node_modules/
+*.tmp
+.playwright-mcp/
+# 對話紀錄、token、設定預設在 %USERPROFILE%\.wikichat（repo 外）；WIKICHAT_CONFIG_DIR 指到 repo 內時也不要進版控
+.wikichat/
